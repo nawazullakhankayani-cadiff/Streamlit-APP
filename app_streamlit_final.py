@@ -23,7 +23,6 @@ from sklearn.metrics import mean_squared_error, r2_score
 STUDENT_NAME = "Nawazullakhan kayani"
 STUDENT_ID = "st20329043"
 MODEL_FOLDER = f"models_{STUDENT_ID}"
-# --- FIX APPLIED HERE ---
 # Changed the local CSV name to match the file you uploaded: Cleaned_indian_air_data (15).csv
 LOCAL_CSV = "Cleaned_indian_air_data (15).csv"
 
@@ -118,6 +117,13 @@ def train_linear(df, features, target):
     }
 
 # ---------------- Sidebar (data + model) ----------------
+
+# --- NEW LOCATION: Move 'Choose page' selector to the top of the sidebar UI ---
+page = st.sidebar.radio("Choose page", 
+    ["🏠 Home", "📊 Data", "🔍 EDA", "🧠 Train ML Model", "🔮 Predict", "⬇️ Download"]
+)
+# --- End of New Location ---
+
 st.sidebar.header("Project & Files")
 st.sidebar.write(f"Student: **{STUDENT_NAME}** — ID: **{STUDENT_ID}**")
 
@@ -125,9 +131,13 @@ uploaded_csv = st.sidebar.file_uploader("Upload cleaned CSV (optional)", type=["
 use_local = st.sidebar.checkbox(f"Use local CSV ({LOCAL_CSV}) if available", value=True)
 
 # optional header image upload & preview
-uploaded_image = st.sidebar.file_uploader("Upload a header image (optional)", type=["png","jpg","jpeg"])
-if uploaded_image is not None:
-    st.image(uploaded_image, use_column_width=True)
+# The image upload button remains in the sidebar
+# --- MODIFIED: Changed to accept multiple files, renamed variable to uploaded_images ---
+uploaded_images = st.sidebar.file_uploader("Upload header images (optional, multiple allowed)", 
+                                           type=["png","jpg","jpeg"], 
+                                           accept_multiple_files=True)
+# --- REMOVED: Image preview from the sidebar, it will now be shown on the main Home page ---
+
 
 # ---------------- Load CSV ----------------
 if uploaded_csv is not None:
@@ -164,14 +174,27 @@ if selected_model_name != "<none>":
         st.sidebar.error(f"Failed to load model: {e}")
 
 # ---------------- Main pages ----------------
-page = st.sidebar.radio("Choose page", 
-    ["🏠 Home", "📊 Data", "🔍 EDA", "🧠 Train ML Model", "🔮 Predict", "⬇️ Download"]
-)
+# The 'page' variable is now defined above the 'Project & Files' header.
 
 # ----------------- Home -----------------
 if page == "🏠 Home":
-    st.header("AirLens — Home")
-    st.write("Interactive app for exploring India air quality data, training a Linear Regression model to predict AQI, and making manual predictions.")
+    
+    st.header("AirLens — Welcome to the Indian Air Quality Data Explorer")
+    st.write(
+        "Welcome to the **Indian Air Quality Dataset Cities** section! This interactive application "
+        "allows you to explore air quality data across various Indian cities, analyze trends, "
+        "train a Linear Regression model to predict the Air Quality Index (AQI), and test predictions."
+    )
+    
+    # --- MODIFIED: Display multiple uploaded images on the main page ---
+    if uploaded_images: # Checks if the list of uploaded files is not empty
+        st.subheader("Your Custom Header Images")
+        # Loop through all uploaded images and display them
+        for i, image in enumerate(uploaded_images):
+            # Use a unique caption for each image
+            st.image(image, use_column_width=True, caption=f"Custom Image {i+1} for Home Page")
+    # --- END MODIFIED ---
+    
     if df.empty:
         st.info("No dataset loaded. Upload a cleaned CSV (recommended) or place it as the local CSV and check the 'Use local CSV' checkbox.")
     else:
@@ -181,13 +204,26 @@ if page == "🏠 Home":
         cols[1].metric("Columns", df.shape[1])
         cols[2].metric("Unique Cities", int(df['City'].nunique()) if 'City' in df.columns else "N/A")
         if 'Date' in df.columns:
-            cols[3].metric("Date Range", f"{df['Date'].min().date()} → {df['Date'].max().date()}")
+            # --- FIX APPLIED HERE: Display only the years ---
+            min_year = df['Date'].min().year
+            max_year = df['Date'].max().year
+            cols[3].metric("Date Range", f"{min_year} to {max_year}")
+            # --- END FIX ---
 
 # ----------------- Data -----------------
 elif page == "📊 Data":
     st.header("Data Preview & Descriptive Statistics")
 
-    # --- NEW: Dataset Column Overview (User Request) ---
+    # --- NEW: Dataset Introduction (User's request) ---
+    st.subheader("Dataset Overview")
+    st.markdown("""
+The dataset used in this project is the **India Air Quality Dataset**, collected from monitoring stations across 25 major cities. It includes pollution readings recorded between **2015 and 2020** from cities like Delhi, Mumbai, Kolkata, Bengaluru, Kochi, Jaipur, and many others. 
+The dataset contains key pollutants such as 🌫 PM2.5, 🌁 PM10, 🟡 SO₂, 🟦 NO₂, 🟥 CO, and 🟩 O₃ which are essential for assessing air quality. It also provides information on the city and year, allowing comparisons across different regions and time periods. 
+This dataset is useful for studying pollution patterns, identifying highly affected cities, and observing how air quality changes over the years. It supports several key tasks in this project, including data cleaning, exploratory data analysis, and building predictive models. Overall, the dataset offers a clear and comprehensive view of air pollution in India and helps create meaningful visual and interactive analysis.
+""")
+    # --- End NEW Content ---
+
+    # --- Existing: Dataset Column Overview (User Request) ---
     st.subheader("📘 Dataset Column Overview (India Air Quality Dataset)")
     st.markdown("""
 This dataset records air-pollution measurements collected from different cities across India. Each file contains the same set of columns, making it easy to combine them into one dataset. The main columns included are:
@@ -456,4 +492,3 @@ elif page == "⬇️ Download":
                 st.download_button(m, data=fh, file_name=m)
     else:
         st.write("No saved models found in folder.")
-        
