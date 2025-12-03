@@ -1,4 +1,3 @@
-# app_streamlit_final.py
 # Streamlit app: EDA + Train Linear Regression + Predict
 # Save and run with: streamlit run app_streamlit_final.py
 
@@ -24,11 +23,12 @@ from sklearn.metrics import mean_squared_error, r2_score
 STUDENT_NAME = "Nawazullakhan kayani"
 STUDENT_ID = "st20329043"
 MODEL_FOLDER = f"models_{STUDENT_ID}"
-LOCAL_CSV = "final_cleaned_air_quality.csv"  # place your CSV here for default
+LOCAL_CSV = "final_cleaned_air_quality.csv"  # IMPORTANT: Your uploaded CSV MUST be named exactly this
 os.makedirs(MODEL_FOLDER, exist_ok=True)
 
-st.set_page_config(page_title="AirLens — Final", layout="wide")
-st.title("AirLens — Air Quality Explorer (Final)")
+# --- CORRECTED: Removed "Final" from page title/config ---
+st.set_page_config(page_title="AirLens", layout="wide")
+st.title("AirLens — Air Quality Explorer")
 
 # ---------------- Helpers ----------------
 @st.cache_data
@@ -43,7 +43,8 @@ def load_csv_file(path):
             df[col] = pd.to_numeric(df[col], errors='coerce')
     # ensure Date is datetime
     if 'Date' in df.columns:
-        df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y', errors='coerce')
+        # --- FIX: Corrected date format to YYYY-MM-DD to match the data ---
+        df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d', errors='coerce')
         df['YEAR'] = df['Date'].dt.year
         df['MONTH'] = df['Date'].dt.month
     return df
@@ -130,7 +131,8 @@ if uploaded_csv is not None:
             df[col] = pd.to_numeric(df[col], errors='coerce')
     # ensure Date is datetime
     if 'Date' in df.columns:
-        df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y', errors='coerce')
+        # --- FIX: Corrected date format to YYYY-MM-DD to match the data ---
+        df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d', errors='coerce')
         df['YEAR'] = df['Date'].dt.year
         df['MONTH'] = df['Date'].dt.month
 else:
@@ -151,10 +153,13 @@ if selected_model_name != "<none>":
         st.sidebar.error(f"Failed to load model: {e}")
 
 # ---------------- Main pages ----------------
-page = st.sidebar.radio("Choose page", ["Home", "Data", "EDA", "Train Model", "Predict", "Download"])
+# --- CORRECTED: Added icons and changed "Train Model" to "Train ML Model" ---
+page = st.sidebar.radio("Choose page", 
+    ["🏠 Home", "📊 Data", "🔍 EDA", "🧠 Train ML Model", "🔮 Predict", "⬇️ Download"]
+)
 
 # ----------------- Home -----------------
-if page == "Home":
+if page == "🏠 Home":
     st.header("AirLens — Home")
     st.write("Interactive app for exploring India air quality data, training a Linear Regression model to predict AQI, and making manual predictions.")
     if df.empty:
@@ -169,8 +174,27 @@ if page == "Home":
             cols[3].metric("Date Range", f"{df['Date'].min().date()} → {df['Date'].max().date()}")
 
 # ----------------- Data -----------------
-elif page == "Data":
+elif page == "📊 Data":
     st.header("Data preview & missing")
+
+    # --- NEW: Dataset Introduction Content ---
+    st.subheader("📘 Introduction of the Dataset")
+    st.write("The dataset used in this project is the **India Air Quality Dataset**, collected from monitoring stations across **26 major cities**.")
+    st.markdown("""
+        It includes pollution readings recorded between **2015 and 2020** from cities like Delhi, Mumbai, Kolkata, Bengaluru, Kochi, Jaipur, and many others.
+        
+        The dataset contains key pollutants essential for assessing air quality:
+        * **🌫 PM2.5**
+        * **🌁 PM10**
+        * **🟡 SO₂**
+        * **🟦 NO₂**
+        * **🟥 CO**
+        * **🟩 O₃**
+        
+        It also provides information on the city and year, allowing comparisons across different regions and time periods. This dataset is useful for studying pollution patterns, identifying highly affected cities, and observing how air quality changes over the years. It supports several key tasks in this project, including data cleaning, exploratory data analysis, and building predictive models. Overall, the dataset offers a clear and comprehensive view of air pollution in India and helps create meaningful visual and interactive analysis.
+        """)
+    # --- End of Introduction ---
+
     if df.empty:
         st.warning("No dataset loaded.")
     else:
@@ -184,17 +208,24 @@ elif page == "Data":
         st.dataframe(miss_tbl.head(30))
 
 # ----------------- EDA -----------------
-elif page == "EDA":
+elif page == "🔍 EDA":
     st.header("Interactive EDA (smoothed & aggregated)")
     if df.empty:
         st.warning("No data loaded.")
     else:
         cities = sorted(df['City'].dropna().unique()) if 'City' in df.columns else []
         sel_cities = st.multiselect("Select cities (empty = all)", options=cities, default=cities[:6])
+        
         if 'YEAR' in df.columns:
-            yr_min, yr_max = int(df['YEAR'].min()), int(df['YEAR'].max())
-            yr_range = st.slider("Year range", yr_min, yr_max, (yr_min, yr_max))
-            df = df[(df['YEAR'] >= yr_range[0]) & (df['YEAR'] <= yr_range[1])]
+            # --- FIX: Added robustness check to handle NaN years (prevents ValueError) ---
+            valid_years = df['YEAR'].dropna()
+            
+            if not valid_years.empty:
+                yr_min, yr_max = int(valid_years.min()), int(valid_years.max())
+                yr_range = st.slider("Year range", yr_min, yr_max, (yr_min, yr_max))
+                df = df[(df['YEAR'] >= yr_range[0]) & (df['YEAR'] <= yr_range[1])]
+            else:
+                st.info("No valid 'Date' entries found to determine a year range.")
 
         filt = df.copy()
         if sel_cities:
@@ -253,7 +284,7 @@ elif page == "EDA":
             st.plotly_chart(fig5, use_container_width=True)
 
 # ----------------- Train Model -----------------
-elif page == "Train Model":
+elif page == "🧠 Train ML Model":
     st.header("Train Linear Regression model to predict AQI")
     if df.empty:
         st.warning("Upload or load dataset first.")
@@ -267,7 +298,7 @@ elif page == "Train Model":
                 res = train_linear(df, features, target)
                 st.success("Model trained and saved.")
                 st.write(f"Model path: `{res['model_path']}`")
-                st.write(f"RMSE: {res['rmse']:.3f}    R²: {res['r2']:.3f}")
+                st.write(f"RMSE: {res['rmse']:.3f}    R²: {res['r2']:.3f}")
                 st.write("Training rows:", res['n_train'], "Test rows:", res['n_test'])
                 if res['coefficients']:
                     st.subheader("Model coefficients (LinearRegression pipeline)")
@@ -277,7 +308,7 @@ elif page == "Train Model":
                 st.error(f"Training failed: {e}")
 
 # ----------------- Predict -----------------
-elif page == "Predict":
+elif page == "🔮 Predict":
     st.header("Manual prediction using a loaded model")
     if df.empty:
         st.warning("Load dataset first (so we can provide sensible defaults).")
@@ -295,7 +326,7 @@ elif page == "Predict":
                 inputs[feat] = st.number_input(feat, min_value=0.0, value=float(defaults[feat]), format="%.2f")
 
         if loaded_pipeline is None:
-            st.info("No model loaded in sidebar. Train a model (Train Model page) or load a saved model from the sidebar.")
+            st.info("No model loaded in sidebar. Train a model (Train ML Model page) or load a saved model from the sidebar.")
         if st.button("Predict AQI with loaded model"):
             if loaded_pipeline is None:
                 st.error("No model loaded.")
@@ -308,7 +339,7 @@ elif page == "Predict":
                     st.error(f"Prediction failed: {e}")
 
 # ----------------- Download -----------------
-elif page == "Download":
+elif page == "⬇️ Download":
     st.header("Download cleaned preview & saved models")
     if df.empty:
         st.info("No data loaded.")
@@ -328,4 +359,4 @@ elif page == "Download":
                 st.download_button(m, data=fh, file_name=m)
     else:
         st.write("No saved models found in folder.")
-
+        
