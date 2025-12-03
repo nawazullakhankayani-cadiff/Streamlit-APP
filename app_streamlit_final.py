@@ -118,11 +118,10 @@ def train_linear(df, features, target):
 
 # ---------------- Sidebar (data + model) ----------------
 
-# --- NEW LOCATION: Move 'Choose page' selector to the top of the sidebar UI ---
+# --- Page selection is correctly at the top ---
 page = st.sidebar.radio("Choose page", 
     ["🏠 Home", "📊 Data", "🔍 EDA", "🧠 Train ML Model", "🔮 Predict", "⬇️ Download"]
 )
-# --- End of New Location ---
 
 st.sidebar.header("Project & Files")
 st.sidebar.write(f"Student: **{STUDENT_NAME}** — ID: **{STUDENT_ID}**")
@@ -130,13 +129,31 @@ st.sidebar.write(f"Student: **{STUDENT_NAME}** — ID: **{STUDENT_ID}**")
 uploaded_csv = st.sidebar.file_uploader("Upload cleaned CSV (optional)", type=["csv"])
 use_local = st.sidebar.checkbox(f"Use local CSV ({LOCAL_CSV}) if available", value=True)
 
-# optional header image upload & preview
-# The image upload button remains in the sidebar
-# --- MODIFIED: Changed to accept multiple files, renamed variable to uploaded_images ---
+# Collect images from the sidebar uploader
 uploaded_images = st.sidebar.file_uploader("Upload header images (optional, multiple allowed)", 
                                            type=["png","jpg","jpeg"], 
                                            accept_multiple_files=True)
-# --- REMOVED: Image preview from the sidebar, it will now be shown on the main Home page ---
+
+# ---------------- Local Image Detection (NEW LOGIC) ----------------
+# List of image extensions to look for
+LOCAL_IMAGE_EXTS = ('.png', '.jpg', '.jpeg')
+
+# Scan the current directory for files ending with these extensions
+local_image_paths = []
+try:
+    for filename in os.listdir('.'):
+        # Check if file has an image extension and is a file (not a directory)
+        if filename.lower().endswith(LOCAL_IMAGE_EXTS) and os.path.isfile(filename):
+            # Exclude the CSV file, python files, and model folder
+            if filename not in [LOCAL_CSV, 'app_streamlit_final.py']:
+                local_image_paths.append(filename)
+except Exception as e:
+    st.sidebar.warning(f"Could not read local files: {e}")
+    local_image_paths = []
+    
+# Combine all image sources
+all_image_sources = uploaded_images + local_image_paths 
+# ---------------- End Local Image Detection ----------------
 
 
 # ---------------- Load CSV ----------------
@@ -174,7 +191,6 @@ if selected_model_name != "<none>":
         st.sidebar.error(f"Failed to load model: {e}")
 
 # ---------------- Main pages ----------------
-# The 'page' variable is now defined above the 'Project & Files' header.
 
 # ----------------- Home -----------------
 if page == "🏠 Home":
@@ -186,13 +202,21 @@ if page == "🏠 Home":
         "train a Linear Regression model to predict the Air Quality Index (AQI), and test predictions."
     )
     
-    # --- MODIFIED: Display multiple uploaded images on the main page ---
-    if uploaded_images: # Checks if the list of uploaded files is not empty
+    # --- MODIFIED: Display automatically detected local images AND newly uploaded images ---
+    if all_image_sources: 
         st.subheader("Your Custom Header Images")
-        # Loop through all uploaded images and display them
-        for i, image in enumerate(uploaded_images):
-            # Use a unique caption for each image
-            st.image(image, use_column_width=True, caption=f"Custom Image {i+1} for Home Page")
+        
+        for i, source in enumerate(all_image_sources):
+            caption = ""
+            
+            # Check if source is a string (a path to a local file)
+            if isinstance(source, str):
+                caption = f"Local Image: {source}"
+                st.image(source, use_column_width=True, caption=caption)
+            # Check if source is a file-like object (uploaded via Streamlit)
+            else:
+                caption = f"Uploaded Image: {source.name}"
+                st.image(source, use_column_width=True, caption=caption)
     # --- END MODIFIED ---
     
     if df.empty:
