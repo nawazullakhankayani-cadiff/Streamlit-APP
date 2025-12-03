@@ -23,7 +23,9 @@ from sklearn.metrics import mean_squared_error, r2_score
 STUDENT_NAME = "Nawazullakhan kayani"
 STUDENT_ID = "st20329043"
 MODEL_FOLDER = f"models_{STUDENT_ID}"
-LOCAL_CSV = "final_cleaned_air_quality.csv"  # IMPORTANT: Your uploaded CSV MUST be named exactly this
+# --- FIX APPLIED HERE ---
+# Changed the local CSV name to match the file you uploaded: Cleaned_indian_air_data (15).csv
+LOCAL_CSV = "Cleaned_indian_air_data (15).csv"
 
 # --- FIX: Ensure model folder exists right at the start ---
 os.makedirs(MODEL_FOLDER, exist_ok=True)
@@ -191,7 +193,7 @@ elif page == "📊 Data":
 This dataset records air-pollution measurements collected from different cities across India. Each file contains the same set of columns, making it easy to combine them into one dataset. The main columns included are:
 * **City** – Identifies the location where the air-quality reading was taken.
 * **Date** – The actual calendar date of the observation, from which Year, Month, and Day were later extracted.
-* **PM2.5 & PM10** – Two types of particulate matter, representing fine and coarse pollution particles. [Image of fine and coarse particulate matter]
+* **PM2.5 & PM10** – Two types of particulate matter, representing fine and coarse pollution particles.
 * **SO₂, NO₂, CO, O₃** – Four major gaseous pollutants measured in micrograms per cubic meter.
 * **YEAR, MONTH, day** – Time-based features derived from the Date column to support trend analysis.
 All files follow this same structure, and when they are merged together, they form a complete dataset covering different cities and years.
@@ -205,18 +207,6 @@ All files follow this same structure, and when they are merged together, they fo
     st.write(f"The dataset currently has **{actual_count}** entries (rows).")
     st.markdown("*(Based on the full, original data, every pollutant and parameter had about **29,531** measurements, showing the data is substantially complete.)*")
 
-    st.markdown("### 2. Mean (Average Values)")
-    st.markdown("""
-| Parameter | Average Value | Explanation |
-| :-------- | :------------ | :-------------------------------------------------------- |
-| PM2.5     | 66.66 µg/m³   | Moderate air pollution on average. |
-| PM10      | 104.63 µg/m³  | Slightly higher, indicating larger particles in the air. |
-| NO₂       | 26.77 µg/m³   | Nitrogen dioxide levels are moderate. |
-| CO        | 2.29 mg/m³    | Generally safe, with occasional higher values. |
-| O₃        | 34.7 µg/m³    | Ozone levels are moderate. |
-| AQI       | 140           | Air quality is sometimes unhealthy (based on AQI scale). |
-""")
-    
     st.markdown("### 3. Minimum & Maximum Values")
     st.markdown("""
 * **PM2.5:** 0.04 → 949.99 µg/m³ (Shows extreme range from very clean to extremely polluted days.)
@@ -466,3 +456,4 @@ elif page == "⬇️ Download":
                 st.download_button(m, data=fh, file_name=m)
     else:
         st.write("No saved models found in folder.")
+        
