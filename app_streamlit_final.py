@@ -183,37 +183,103 @@ if page == "🏠 Home":
 
 # ----------------- Data -----------------
 elif page == "📊 Data":
-    st.header("Data preview & missing")
+    st.header("Data Preview & Descriptive Statistics")
 
-    # --- NEW: Dataset Introduction Content ---
-    st.subheader("📘 Introduction of the Dataset")
-    st.write("The dataset used in this project is the **India Air Quality Dataset**, collected from monitoring stations across **26 major cities**.")
+    # --- NEW: Dataset Column Overview (User Request) ---
+    st.subheader("📘 Dataset Column Overview (India Air Quality Dataset)")
     st.markdown("""
-        It includes pollution readings recorded between **2015 and 2020** from cities like Delhi, Mumbai, Kolkata, Bengaluru, Kochi, Jaipur, and many others.
-        
-        The dataset contains key pollutants essential for assessing air quality:
-        * **🌫 PM2.5**
-        * **🌁 PM10**
-        * **🟡 SO₂**
-        * **🟦 NO₂**
-        * **🟥 CO**
-        * **🟩 O₃**
-        
-        It also provides information on the city and year, allowing comparisons across different regions and time periods. This dataset is useful for studying pollution patterns, identifying highly affected cities, and observing how air quality changes over the years. It supports several key tasks in this project, including data cleaning, exploratory data analysis, and building predictive models. Overall, the dataset offers a clear and comprehensive view of air pollution in India and helps create meaningful visual and interactive analysis.
-        """)
-    # --- End of Introduction ---
+This dataset records air-pollution measurements collected from different cities across India. Each file contains the same set of columns, making it easy to combine them into one dataset. The main columns included are:
+* **City** – Identifies the location where the air-quality reading was taken.
+* **Date** – The actual calendar date of the observation, from which Year, Month, and Day were later extracted.
+* **PM2.5 & PM10** – Two types of particulate matter, representing fine and coarse pollution particles. [Image of fine and coarse particulate matter]
+* **SO₂, NO₂, CO, O₃** – Four major gaseous pollutants measured in micrograms per cubic meter.
+* **YEAR, MONTH, day** – Time-based features derived from the Date column to support trend analysis.
+All files follow this same structure, and when they are merged together, they form a complete dataset covering different cities and years.
+""")
+    
+    # --- Existing: Summary of Descriptive Statistics (Based on User Input) ---
+    st.subheader("📊 Summary of Descriptive Statistics")
+    
+    st.markdown("### 1. Count")
+    actual_count = len(df)
+    st.write(f"The dataset currently has **{actual_count}** entries (rows).")
+    st.markdown("*(Based on the full, original data, every pollutant and parameter had about **29,531** measurements, showing the data is substantially complete.)*")
+
+    st.markdown("### 2. Mean (Average Values)")
+    st.markdown("""
+| Parameter | Average Value | Explanation |
+| :-------- | :------------ | :-------------------------------------------------------- |
+| PM2.5     | 66.66 µg/m³   | Moderate air pollution on average. |
+| PM10      | 104.63 µg/m³  | Slightly higher, indicating larger particles in the air. |
+| NO₂       | 26.77 µg/m³   | Nitrogen dioxide levels are moderate. |
+| CO        | 2.29 mg/m³    | Generally safe, with occasional higher values. |
+| O₃        | 34.7 µg/m³    | Ozone levels are moderate. |
+| AQI       | 140           | Air quality is sometimes unhealthy (based on AQI scale). |
+""")
+    
+    st.markdown("### 3. Minimum & Maximum Values")
+    st.markdown("""
+* **PM2.5:** 0.04 → 949.99 µg/m³ (Shows extreme range from very clean to extremely polluted days.)
+* **PM10:** 0.01 → 1000 µg/m³ (Large fluctuations, possibly indicating pollution spikes.)
+* **CO:** 0 → 175.81 mg/m³ (Mostly low, but some high peaks.)
+* **AQI:** 0 → 2049 (A very high maximum likely indicates an outlier or an extreme pollution event.)
+""")
+
+    st.markdown("### 4. Quartiles (25%, 50%, 75%)")
+    st.markdown("""
+These divide the data into four equal parts, showing what is "typical" versus "extreme."
+
+**PM2.5 Example:**
+* **25% of readings ≤ 28.99** → The air is cleaner most of the time.
+* **Median (50%) = 49.2** → Half of the time, PM2.5 ≤ 49.2 µg/m³.
+* **75% = 78.62** → One-quarter of the time, PM2.5 is high.
+""")
+
+    st.markdown("### 5. Standard Deviation (Spread of Values)")
+    st.markdown("""
+* **PM2.5 std = 63.9** → Pollution levels change a lot from day to day.
+* **NOx std = 31.6** → Nitrogen oxide also varies a lot.
+* **O₃ std = 21.98** → Ozone is somewhat consistent.
+""")
+    # --- End of Descriptive Stats Summary ---
 
     if df.empty:
         st.warning("No dataset loaded.")
     else:
         st.subheader("Preview (first 10 rows)")
         st.dataframe(df.head(10))
+        
         st.subheader("Missing values (top columns)")
         miss = df.isnull().sum().sort_values(ascending=False)
         miss_pct = 100 * miss / len(df)
         miss_tbl = pd.concat([miss, miss_pct], axis=1)
         miss_tbl.columns = ["Missing", "% Missing"]
         st.dataframe(miss_tbl.head(30))
+
+        # --- NEW: Total missing per City (Based on User Input) ---
+        st.subheader("Total Missing Data Points per City")
+        
+        # User's list of City and Missing Count (parsed from the raw text)
+        missing_data = {
+            "Ahmedabad": 10175, "Aizawl": 159, "Amaravati": 1135, "Amritsar": 1735,
+            "Bengaluru": 3446, "Bhopal": 961, "Brajrajnagar": 4038, "Chandigarh": 43,
+            "Chennai": 5265, "Coimbatore": 638, "Delhi": 1085, "Ernakulam": 271,
+            "Gurugram": 6705, "Guwahati": 1032, "Hyderabad": 1555, "Jaipur": 1400,
+            "Jorapokhar": 8333, "Kochi": 354, "Kolkata": 790, "Lucknow": 6058,
+            "Mumbai": 12959, "Patna": 6011, "Shillong": 1014, "Talcher": 3814,
+            "Thiruvananthapuram": 3774, "Visakhapatnam": 2156
+        }
+        
+        # Create a DataFrame for better display
+        df_missing_city = pd.DataFrame(
+            list(missing_data.items()),
+            columns=['City', 'Total Missing Data Points']
+        ).sort_values(by='Total Missing Data Points', ascending=False).reset_index(drop=True)
+        
+        st.markdown(
+            "*(This table shows the total number of missing data points across **all** pollutant columns for each city, highlighting which areas had the most incomplete records.)*"
+        )
+        st.dataframe(df_missing_city)
 
 # ----------------- EDA -----------------
 elif page == "🔍 EDA":
@@ -247,8 +313,12 @@ elif page == "🔍 EDA":
             if ts_sm.empty:
                 st.info("No time series data for selected metric.")
             else:
-                fig = px.line(ts_sm, x='Date', y='value', color='City', title=f"{metric} — smoothed (7-day median)")
-                fig.update_layout(height=520)
+                # --- EDA IMPROVEMENT: Apply 'seaborn' template and better line look ---
+                fig = px.line(ts_sm, x='Date', y='value', color='City', 
+                              title=f"Time Series: {metric} (7-day Median)",
+                              template="seaborn")
+                fig.update_traces(line=dict(width=3)) 
+                fig.update_layout(height=520, margin=dict(t=50, b=50, l=0, r=0))
                 st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("2. Top cities by pollutant (bar)")
@@ -257,9 +327,14 @@ elif page == "🔍 EDA":
             poll = st.selectbox("Pollutant to rank", options=pollutant_list, index=0)
             n = st.slider("Top N cities", 3, min(30, filt['City'].nunique()), 8)
             agg = filt.groupby('City')[poll].mean().reset_index().sort_values(by=poll, ascending=False).head(n)
-            fig2 = px.bar(agg, x='City', y=poll, text=agg[poll].round(2), title=f"Top {n} cities by mean {poll}")
+            # --- EDA IMPROVEMENT: Apply 'seaborn' template, color by pollutant value for visual hierarchy ---
+            fig2 = px.bar(agg, x='City', y=poll, text=agg[poll].round(2), 
+                          title=f"Top {n} cities by mean {poll}",
+                          color=poll,
+                          color_continuous_scale=px.colors.sequential.Plotly3,
+                          template="seaborn")
             fig2.update_traces(textposition='outside')
-            fig2.update_layout(xaxis_tickangle=-45, height=420)
+            fig2.update_layout(xaxis_tickangle=-45, height=420, coloraxis_showscale=False)
             st.plotly_chart(fig2, use_container_width=True)
 
         st.subheader("3. Distribution per city (violin) and boxplots of city averages")
@@ -272,14 +347,21 @@ elif page == "🔍 EDA":
             if small.empty:
                 st.info("Not enough data.")
             else:
-                fig3 = px.violin(small, x='City', y=col0, box=True, points='outliers', title=f"Distribution of {col0} by City")
+                # --- EDA IMPROVEMENT: Apply 'seaborn' template, color by city for distinction ---
+                fig3 = px.violin(small, x='City', y=col0, box=True, points='outliers', 
+                                 title=f"Distribution of {col0} by City",
+                                 color='City',
+                                 template="seaborn")
                 fig3.update_layout(xaxis_tickangle=-45, height=480)
                 st.plotly_chart(fig3, use_container_width=True)
 
             avg_city = filt.groupby('City')[chosen].mean().reset_index()
             if not avg_city.empty:
                 avg_melt = avg_city.melt(id_vars='City', var_name='Pollutant', value_name='Avg')
-                fig4 = px.box(avg_melt, x='Pollutant', y='Avg', color='Pollutant', title="Boxplots of City-wise Averages")
+                # --- EDA IMPROVEMENT: Apply 'seaborn' template ---
+                fig4 = px.box(avg_melt, x='Pollutant', y='Avg', color='Pollutant', 
+                              title="Boxplots of City-wise Averages",
+                              template="seaborn")
                 fig4.update_layout(height=420)
                 st.plotly_chart(fig4, use_container_width=True)
 
@@ -287,7 +369,11 @@ elif page == "🔍 EDA":
         corr_select = st.multiselect("Pick numeric columns", options=numeric_cols, default=[c for c in numeric_cols if c in ['PM2.5','PM10','AQI']][:3])
         if len(corr_select) >= 2:
             corr = filt[corr_select].corr().round(2)
-            fig5 = px.imshow(corr, text_auto=True, title="Correlation matrix", aspect="auto")
+            # --- EDA IMPROVEMENT: Use a diverging color scale for better correlation visualization ---
+            fig5 = px.imshow(corr, text_auto=True, title="Correlation matrix", 
+                             aspect="auto",
+                             color_continuous_scale=px.colors.diverging.RdBu,
+                             template="seaborn")
             fig5.update_layout(height=420)
             st.plotly_chart(fig5, use_container_width=True)
 
