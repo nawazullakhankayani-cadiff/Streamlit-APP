@@ -35,13 +35,15 @@ st.title("AirLens — Air Quality Explorer (Final)")
 def load_csv_file(path):
     if not os.path.exists(path):
         return pd.DataFrame()
-    df = pd.read_csv(path, parse_dates=["Date"], dayfirst=True, infer_datetime_format=True)
+    df = pd.read_csv(path)
     df.columns = [c.strip() for c in df.columns]
-    # coerce common numeric columns
+    # coerce numeric columns
     for col in ['PM2.5','PM10','NO2','NOx','NH3','CO','SO2','O3','Benzene','Toluene','Xylene','AQI']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
+    # ensure Date is datetime
     if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y', errors='coerce')
         df['YEAR'] = df['Date'].dt.year
         df['MONTH'] = df['Date'].dt.month
     return df
@@ -69,7 +71,6 @@ def prepare_features_and_target(df):
     return features, target
 
 def train_linear(df, features, target):
-    # drop rows where target is NaN or all features NaN
     X = df[features]
     y = df[target]
     mask = (~y.isna()) & (X.notna().sum(axis=1) > 0)
@@ -90,7 +91,6 @@ def train_linear(df, features, target):
     ts = int(time.time())
     model_path = os.path.join(MODEL_FOLDER, f"linear_aqi_{STUDENT_ID}_{ts}.pkl")
     joblib.dump(pipeline, model_path)
-    # attempt to get coefficients (after inverse of scaler is complicated, but we show pipeline coef)
     try:
         coef = pipeline.named_steps['lr'].coef_.tolist()
         intercept = float(pipeline.named_steps['lr'].intercept_)
@@ -120,22 +120,26 @@ uploaded_image = st.sidebar.file_uploader("Upload a header image (optional)", ty
 if uploaded_image is not None:
     st.image(uploaded_image, use_column_width=True)
 
-# load data
+# ---------------- Load CSV ----------------
 if uploaded_csv is not None:
-    df = pd.read_csv(uploaded_csv, parse_dates=["Date"], dayfirst=True)
+    df = pd.read_csv(uploaded_csv)
     df.columns = [c.strip() for c in df.columns]
+    # convert numeric columns
     for col in ['PM2.5','PM10','NO2','NOx','NH3','CO','SO2','O3','Benzene','Toluene','Xylene','AQI']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
+    # ensure Date is datetime
     if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y', errors='coerce')
         df['YEAR'] = df['Date'].dt.year
+        df['MONTH'] = df['Date'].dt.month
 else:
     if use_local and os.path.exists(LOCAL_CSV):
         df = load_csv_file(LOCAL_CSV)
     else:
         df = pd.DataFrame()
 
-# load saved model list and allow load
+# ---------------- Load saved models ----------------
 model_files = sorted([f for f in os.listdir(MODEL_FOLDER) if f.endswith('.pkl') or f.endswith('.joblib')], reverse=True)
 selected_model_name = st.sidebar.selectbox("Load a saved model (optional)", options=["<none>"] + model_files)
 loaded_pipeline = None
@@ -149,7 +153,7 @@ if selected_model_name != "<none>":
 # ---------------- Main pages ----------------
 page = st.sidebar.radio("Choose page", ["Home", "Data", "EDA", "Train Model", "Predict", "Download"])
 
-# --- Home ---
+# ----------------- Home -----------------
 if page == "Home":
     st.header("AirLens — Home")
     st.write("Interactive app for exploring India air quality data, training a Linear Regression model to predict AQI, and making manual predictions.")
@@ -164,7 +168,7 @@ if page == "Home":
         if 'Date' in df.columns:
             cols[3].metric("Date Range", f"{df['Date'].min().date()} → {df['Date'].max().date()}")
 
-# --- Data ---
+# ----------------- Data -----------------
 elif page == "Data":
     st.header("Data preview & missing")
     if df.empty:
@@ -179,13 +183,12 @@ elif page == "Data":
         miss_tbl.columns = ["Missing", "% Missing"]
         st.dataframe(miss_tbl.head(30))
 
-# --- EDA ---
+# ----------------- EDA -----------------
 elif page == "EDA":
     st.header("Interactive EDA (smoothed & aggregated)")
     if df.empty:
         st.warning("No data loaded.")
     else:
-        # filters
         cities = sorted(df['City'].dropna().unique()) if 'City' in df.columns else []
         sel_cities = st.multiselect("Select cities (empty = all)", options=cities, default=cities[:6])
         if 'YEAR' in df.columns:
@@ -225,7 +228,6 @@ elif page == "EDA":
         default_cols = [c for c in ['PM2.5','AQI'] if c in numeric_cols]
         chosen = st.multiselect("Choose numeric columns (for distr.)", options=numeric_cols, default=default_cols)
         if chosen:
-            # show violin for first chosen column
             col0 = chosen[0]
             small = filt[['City', col0]].dropna()
             if small.empty:
@@ -235,7 +237,6 @@ elif page == "EDA":
                 fig3.update_layout(xaxis_tickangle=-45, height=480)
                 st.plotly_chart(fig3, use_container_width=True)
 
-            # boxplots of city averages across chosen columns
             avg_city = filt.groupby('City')[chosen].mean().reset_index()
             if not avg_city.empty:
                 avg_melt = avg_city.melt(id_vars='City', var_name='Pollutant', value_name='Avg')
@@ -251,7 +252,7 @@ elif page == "EDA":
             fig5.update_layout(height=420)
             st.plotly_chart(fig5, use_container_width=True)
 
-# --- Train Model ---
+# ----------------- Train Model -----------------
 elif page == "Train Model":
     st.header("Train Linear Regression model to predict AQI")
     if df.empty:
@@ -271,12 +272,11 @@ elif page == "Train Model":
                 if res['coefficients']:
                     st.subheader("Model coefficients (LinearRegression pipeline)")
                     st.table(pd.DataFrame.from_dict(res['coefficients'], orient='index', columns=['coef']).sort_values('coef', ascending=False))
-                # after training, load into session
                 loaded_pipeline = res['pipeline']
             except Exception as e:
                 st.error(f"Training failed: {e}")
 
-# --- Predict ---
+# ----------------- Predict -----------------
 elif page == "Predict":
     st.header("Manual prediction using a loaded model")
     if df.empty:
@@ -286,10 +286,7 @@ elif page == "Predict":
         if target not in df.columns:
             st.error("AQI column is missing from dataset; you can still predict if you have a trained model loaded.")
         st.write("Features used for prediction:", features)
-        # input fields
-        defaults = {}
-        for f in features:
-            defaults[f] = float(df[f].median(skipna=True)) if f in df.columns else 0.0
+        defaults = {f: float(df[f].median(skipna=True)) if f in df.columns else 0.0 for f in features}
 
         cols = st.columns(min(4, max(1, len(features))))
         inputs = {}
@@ -297,7 +294,6 @@ elif page == "Predict":
             with cols[i % len(cols)]:
                 inputs[feat] = st.number_input(feat, min_value=0.0, value=float(defaults[feat]), format="%.2f")
 
-        # pick pipeline: either loaded_pipeline (from sidebar) or previously trained in this session
         if loaded_pipeline is None:
             st.info("No model loaded in sidebar. Train a model (Train Model page) or load a saved model from the sidebar.")
         if st.button("Predict AQI with loaded model"):
@@ -311,13 +307,12 @@ elif page == "Predict":
                 except Exception as e:
                     st.error(f"Prediction failed: {e}")
 
-# --- Download ---
+# ----------------- Download -----------------
 elif page == "Download":
     st.header("Download cleaned preview & saved models")
     if df.empty:
         st.info("No data loaded.")
     else:
-        # create cleaned preview
         df_clean = df.copy()
         num_cols = df_clean.select_dtypes(include=[np.number]).columns
         df_clean[num_cols] = df_clean[num_cols].fillna(df_clean[num_cols].median())
@@ -334,4 +329,3 @@ elif page == "Download":
     else:
         st.write("No saved models found in folder.")
 
-# End of app
