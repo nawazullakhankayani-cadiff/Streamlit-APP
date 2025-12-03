@@ -134,7 +134,7 @@ uploaded_images = st.sidebar.file_uploader("Upload header images (optional, mult
                                            type=["png","jpg","jpeg"], 
                                            accept_multiple_files=True)
 
-# ---------------- Local Image Detection (NEW LOGIC) ----------------
+# ---------------- Local Image Detection ----------------
 # List of image extensions to look for
 LOCAL_IMAGE_EXTS = ('.png', '.jpg', '.jpeg')
 
@@ -196,26 +196,29 @@ if selected_model_name != "<none>":
 if page == "🏠 Home":
     
     st.header("AirLens — Welcome to the Indian Air Quality Data Explorer")
+    
+    # --- MODIFIED: Used st.write/st.markdown to ensure the exact text is displayed after the header ---
     st.write(
-        "Welcome to the **Indian Air Quality Dataset Cities** section! This interactive application "
+        "Welcome to the Indian Air Quality Dataset Cities section! This interactive application "
         "allows you to explore air quality data across various Indian cities, analyze trends, "
         "train a Linear Regression model to predict the Air Quality Index (AQI), and test predictions."
     )
+    # --- END MODIFIED ---
     
     # --- MODIFIED: Display automatically detected local images AND newly uploaded images ---
     if all_image_sources: 
-        st.subheader("Your Custom Header Images")
+        # Removed the subheader "Your Custom Header Images"
+        st.subheader("Images of India")
         
         for i, source in enumerate(all_image_sources):
-            caption = ""
+            # Use a fixed, generic, AI-themed caption as requested
+            caption = f"AI-Generated Image of India {i+1}"
             
             # Check if source is a string (a path to a local file)
             if isinstance(source, str):
-                caption = f"Local Image: {source}"
                 st.image(source, use_column_width=True, caption=caption)
             # Check if source is a file-like object (uploaded via Streamlit)
             else:
-                caption = f"Uploaded Image: {source.name}"
                 st.image(source, use_column_width=True, caption=caption)
     # --- END MODIFIED ---
     
