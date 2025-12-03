@@ -24,6 +24,8 @@ STUDENT_NAME = "Nawazullakhan kayani"
 STUDENT_ID = "st20329043"
 MODEL_FOLDER = f"models_{STUDENT_ID}"
 LOCAL_CSV = "final_cleaned_air_quality.csv"  # IMPORTANT: Your uploaded CSV MUST be named exactly this
+
+# --- FIX: Ensure model folder exists right at the start ---
 os.makedirs(MODEL_FOLDER, exist_ok=True)
 
 # --- CORRECTED: Removed "Final" from page title/config ---
@@ -87,7 +89,11 @@ def train_linear(df, features, target):
     ])
     pipeline.fit(X_train, y_train)
     preds = pipeline.predict(X_test)
-    rmse = mean_squared_error(y_test, preds, squared=False)
+    
+    # --- FIX: Removed 'squared=False' argument and used np.sqrt for RMSE ---
+    mse = mean_squared_error(y_test, preds)
+    rmse = np.sqrt(mse)
+    
     r2 = r2_score(y_test, preds)
     ts = int(time.time())
     model_path = os.path.join(MODEL_FOLDER, f"linear_aqi_{STUDENT_ID}_{ts}.pkl")
@@ -142,9 +148,12 @@ else:
         df = pd.DataFrame()
 
 # ---------------- Load saved models ----------------
+# --- NOTE: We read this once outside the page logic to ensure consistency ---
 model_files = sorted([f for f in os.listdir(MODEL_FOLDER) if f.endswith('.pkl') or f.endswith('.joblib')], reverse=True)
 selected_model_name = st.sidebar.selectbox("Load a saved model (optional)", options=["<none>"] + model_files)
 loaded_pipeline = None
+
+# If a model is selected in the sidebar, load it immediately
 if selected_model_name != "<none>":
     try:
         loaded_pipeline = joblib.load(os.path.join(MODEL_FOLDER, selected_model_name))
@@ -153,7 +162,6 @@ if selected_model_name != "<none>":
         st.sidebar.error(f"Failed to load model: {e}")
 
 # ---------------- Main pages ----------------
-# --- CORRECTED: Added icons and changed "Train Model" to "Train ML Model" ---
 page = st.sidebar.radio("Choose page", 
     ["🏠 Home", "📊 Data", "🔍 EDA", "🧠 Train ML Model", "🔮 Predict", "⬇️ Download"]
 )
@@ -303,16 +311,34 @@ elif page == "🧠 Train ML Model":
                 if res['coefficients']:
                     st.subheader("Model coefficients (LinearRegression pipeline)")
                     st.table(pd.DataFrame.from_dict(res['coefficients'], orient='index', columns=['coef']).sort_values('coef', ascending=False))
-                loaded_pipeline = res['pipeline']
+                
+                # --- NEW FIX: Set the trained model as the currently loaded one immediately ---
+                st.session_state['loaded_pipeline_data'] = res['pipeline']
+                st.session_state['just_trained_model_name'] = res['model_path'].split(os.path.sep)[-1]
+                
             except Exception as e:
                 st.error(f"Training failed: {e}")
 
 # ----------------- Predict -----------------
 elif page == "🔮 Predict":
     st.header("Manual prediction using a loaded model")
+    
+    # --- FIX: Check for the immediately trained model first ---
+    if 'loaded_pipeline_data' in st.session_state:
+        loaded_pipeline = st.session_state['loaded_pipeline_data']
+        st.info(f"Using model trained in the current session: **{st.session_state['just_trained_model_name']}**")
+    elif loaded_pipeline is None:
+        # If no model is selected in the sidebar, check if any saved models exist
+        if model_files:
+            st.info("Please select one of the saved models from the sidebar (under 'Load a saved model (optional)') to use the prediction feature.")
+        else:
+             st.info("No model loaded in sidebar. Please go to the '🧠 Train ML Model' page and train a model first.")
+
+
     if df.empty:
         st.warning("Load dataset first (so we can provide sensible defaults).")
-    else:
+    elif loaded_pipeline is not None:
+        
         features, target = prepare_features_and_target(df)
         if target not in df.columns:
             st.error("AQI column is missing from dataset; you can still predict if you have a trained model loaded.")
@@ -325,18 +351,13 @@ elif page == "🔮 Predict":
             with cols[i % len(cols)]:
                 inputs[feat] = st.number_input(feat, min_value=0.0, value=float(defaults[feat]), format="%.2f")
 
-        if loaded_pipeline is None:
-            st.info("No model loaded in sidebar. Train a model (Train ML Model page) or load a saved model from the sidebar.")
         if st.button("Predict AQI with loaded model"):
-            if loaded_pipeline is None:
-                st.error("No model loaded.")
-            else:
-                Xnew = pd.DataFrame([inputs])
-                try:
-                    pred = loaded_pipeline.predict(Xnew)[0]
-                    st.metric("Predicted AQI", f"{pred:.2f}")
-                except Exception as e:
-                    st.error(f"Prediction failed: {e}")
+            Xnew = pd.DataFrame([inputs])
+            try:
+                pred = loaded_pipeline.predict(Xnew)[0]
+                st.metric("Predicted AQI", f"{pred:.2f}")
+            except Exception as e:
+                st.error(f"Prediction failed: {e}")
 
 # ----------------- Download -----------------
 elif page == "⬇️ Download":
@@ -359,4 +380,3 @@ elif page == "⬇️ Download":
                 st.download_button(m, data=fh, file_name=m)
     else:
         st.write("No saved models found in folder.")
-        
